@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Перший крок — робота для молоді</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ЗАСТАВКА ПРИ ЗАПУСКУ САЙТУ -->
+<div id="splash" class="splash" aria-hidden="true">
+    <video id="splashVideo" class="splash-video" muted playsinline autoplay preload="auto">
+        <source src="krok.mp4" type="video/mp4">
+    </video>
+
+    <!-- Запасной вариант, если видео krok.mp4 не найдено -->
+    <div id="splashFallback" class="splash-fallback hidden">
+        <img src="stairs-walker.svg" width="320" height="260" alt="" onerror="this.classList.add('hidden')">
+        <div class="splash-title">krok</div>
+    </div>
+
+    <button id="splashSkip" class="splash-skip" type="button">Пропустити</button>
+</div>
+
+<header class="topbar">
+    <div class="brand">
+        <button id="backBtn" class="back-btn hidden" onclick="goBack()" aria-label="Назад" title="Назад">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path d="M14.5 5.5 L8 12 L14.5 18.5"
+                      fill="none" stroke="currentColor" stroke-width="2.4"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <div class="logo" onclick="showPage('choice')" style="cursor:pointer">
+            <span>Перший крок</span>
+            <span class="logo-art">
+                <video class="logo-video" autoplay muted loop playsinline preload="auto"
+                       aria-label="Чоловічок піднімається сходинками">
+                    <source src="krok2.mp4" type="video/mp4"
+                            onerror="this.closest('.logo-art').classList.add('no-video')">
+                </video>
+                <svg class="logo-steps logo-fallback" viewBox="0 -4 44 36" width="44" height="36" aria-hidden="true"
+                     fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 30 V26 H11 V22 H18 V18 H25 V14 H32 V10 H39" stroke-width="2.4"/>
+                <line x1="6" y1="14.9" x2="34" y2="-1.1" stroke-width="2.2"/>
+                <line x1="6" y1="19.9" x2="34" y2="3.9" stroke-width="1.2" opacity=".75"/>
+                <line x1="6" y1="24.9" x2="6" y2="14.9" stroke-width="1.8"/>
+                <line x1="34" y1="8.9" x2="34" y2="-1.1" stroke-width="1.8"/>
+            </svg>
+            </span>
+        </div>
+    </div>
+
+    <nav id="mainNav" class="hidden">
+        <button data-role="seeker" data-page="home" onclick="showPage('home')">Головна</button>
+        <button data-role="seeker" data-page="jobs" onclick="showPage('jobs')">Шукаю роботу</button>
+        <button data-role="seeker" data-page="builder" onclick="showPage('builder')">Створити резюме</button>
+
+        <button data-role="employer" data-page="employerHub" onclick="showPage('employerHub')">Головна</button>
+        <button data-role="employer" data-page="employer" onclick="showPage('employer')">Надати вакансію</button>
+        <button data-role="employer" data-page="resumes" onclick="showPage('resumes')">Переглянути резюме</button>
+        <button data-role="employer" data-page="myJobs" onclick="showPage('myJobs')">Подані вакансії</button>
+
+        <button data-page="support" onclick="showPage('support')">Підтримка</button>
+        <button onclick="showPage('choice')">⇄ Змінити роль</button>
+    </nav>
+</header>
+
+<div id="dbBanner" class="banner hidden"></div>
+
+<main class="container">
+
+    <!-- ВИБІР РОЛІ -->
+    <section id="choice" class="page">
+        <div class="choice-intro">
+            <span class="label">Ласкаво просимо</span>
+            <h1>Хто ти <span>на платформі?</span></h1>
+            <p class="muted">Обери, що тобі потрібно, і ми покажемо потрібні розділи.</p>
+        </div>
+
+        <div class="choice-grid">
+            <button class="choice-card" onclick="chooseRole('seeker')">
+                <div class="big-icon">🎒</div>
+                <h2>Шукаю роботу</h2>
+                <p>Знаходь підробіток, створюй резюме та подавай заявки.</p>
+                <span class="choice-arrow">Продовжити →</span>
+            </button>
+
+            <button class="choice-card" onclick="chooseRole('employer')">
+                <div class="big-icon">🏢</div>
+                <h2>Надаю роботу</h2>
+                <p>Публікуй вакансії та переглядай резюме молоді.</p>
+                <span class="choice-arrow">Продовжити →</span>
+            </button>
+        </div>
+    </section>
+
+
+    <!-- ГОЛОВНА РОБОТОДАВЦЯ -->
+    <section id="employerHub" class="page hidden">
+        <div class="choice-intro">
+            <span class="label">Для роботодавців</span>
+            <h1>Що хочеш <span>зробити?</span></h1>
+            <p class="muted">Опублікуй вакансію, знайди кандидата або перевір заявки.</p>
+        </div>
+
+        <div class="choice-grid three">
+            <button class="choice-card" onclick="showPage('employer')">
+                <div class="big-icon">📝</div>
+                <h2>Надати вакансію</h2>
+                <p>Створи оголошення, і його побачать усі, хто шукає роботу.</p>
+                <span class="choice-arrow">Відкрити →</span>
+            </button>
+
+            <button class="choice-card" onclick="showPage('resumes')">
+                <div class="big-icon">👥</div>
+                <h2>Переглянути резюме</h2>
+                <p>Знайди кандидата та запроси його на співбесіду.</p>
+                <span class="choice-arrow">Відкрити →</span>
+            </button>
+
+            <button class="choice-card" onclick="showPage('myJobs')">
+                <div class="big-icon">📋</div>
+                <h2>Подані вакансії</h2>
+                <p>Твої вакансії та заявки кандидатів на них.</p>
+                <span class="choice-arrow">Відкрити →</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- ГОЛОВНА -->
+    <section id="home" class="page hidden">
+        <div class="hero">
+            <div>
+                <span class="label">Твій старт у кар'єрі</span>
+                <h1>Знайди свою <span>першу роботу</span></h1>
+                <p>
+                    Знаходь підробіток, створюй резюме та знайомся
+                    з роботодавцями. Досвід роботи — не обов'язковий!
+                </p>
+                <button class="primary" onclick="showPage('jobs')">
+                    Знайти вакансію →
+                </button>
+                <button class="secondary" onclick="showPage('builder')">
+                    Створити резюме
+                </button>
+            </div>
+
+            <div class="hero-card">
+                <div class="big-icon">🌱</div>
+                <h2>Почни з малого</h2>
+                <p>Твої навички, бажання вчитися та відповідальність — це вже хороший старт.</p>
+                <span class="tag">Перший досвід</span>
+                <span class="tag">Гнучкий графік</span>
+            </div>
+        </div>
+
+        <h2>Свіжі вакансії</h2>
+        <div id="homeJobs" class="cards"></div>
+    </section>
+
+    <!-- ПОШУК РОБОТИ -->
+    <section id="jobs" class="page hidden">
+        <h1>Шукаю роботу</h1>
+        <p class="muted">Обирай вакансію та дізнавайся про умови праці.</p>
+
+        <div class="filters">
+            <input id="jobSearch" placeholder="Пошук вакансії...">
+            <select id="jobCity">
+                <option value="">Усі міста</option>
+                <option>Івано-Франківськ</option>
+                <option>Львів</option>
+                <option>Київ</option>
+                <option>Віддалено</option>
+            </select>
+        </div>
+
+        <div id="jobsList" class="cards"></div>
+    </section>
+
+    <!-- ДОДАВАННЯ ВАКАНСІЇ -->
+    <section id="employer" class="page hidden">
+        <h1>Надати вакансію</h1>
+        <p class="muted">Розкажіть кандидатам про свою вакансію.</p>
+
+        <form id="jobForm" class="panel">
+            <label>Назва посади *</label>
+            <input id="jobTitle" required placeholder="Наприклад, помічник бариста">
+
+            <label>Назва компанії *</label>
+            <input id="company" required placeholder="Назва закладу або компанії">
+
+            <label>Місто *</label>
+            <select id="city" required>
+                <option value="">Оберіть місто</option>
+                <option>Івано-Франківськ</option>
+                <option>Львів</option>
+                <option>Київ</option>
+                <option>Віддалено</option>
+            </select>
+
+            <label>Зарплата *</label>
+            <input id="salary" required placeholder="Наприклад, 8 000–12 000 грн/міс.">
+
+            <label>Графік роботи *</label>
+            <input id="schedule" required placeholder="Наприклад, після навчання">
+
+            <label>Обов'язки *</label>
+            <textarea id="duties" required placeholder="Що потрібно буде робити?"></textarea>
+
+            <label>Вимоги до кандидата *</label>
+            <textarea id="requirements" required placeholder="Які навички потрібні?"></textarea>
+
+            <label>Контакт для відгуку *</label>
+            <input id="contact" required placeholder="Робоча пошта компанії">
+
+            <button class="primary" type="submit">Опублікувати вакансію</button>
+        </form>
+
+    </section>
+
+
+    <!-- ПОДАНІ ВАКАНСІЇ -->
+    <section id="myJobs" class="page hidden">
+        <h1>Подані вакансії</h1>
+        <p class="muted">Вакансії, які ти опублікував, і заявки кандидатів на них.</p>
+        <div id="myJobsList" class="cards"></div>
+    </section>
+
+    <!-- РЕЗЮМЕ КАНДИДАТІВ -->
+    <section id="resumes" class="page hidden">
+        <h1>Резюме молоді</h1>
+        <p class="muted">Переглядайте навички та побажання кандидатів.</p>
+        <div id="resumeList" class="cards"></div>
+    </section>
+
+    <!-- СТВОРЕННЯ РЕЗЮМЕ -->
+    <section id="builder" class="page hidden">
+        <h1>Створи своє резюме</h1>
+        <p class="muted">Заповни форму — і твоє резюме з'явиться праворуч.</p>
+
+        <div class="builder-layout">
+            <form id="resumeForm" class="panel">
+                <h2>Особиста інформація</h2>
+
+                <label>Ім'я та прізвище *</label>
+                <input id="rName" required maxlength="80" placeholder="Твоє ім'я">
+
+                <label>Вік *</label>
+                <select id="rAge" required>
+                    <option value="">Обери вік</option>
+                    <option>14</option>
+                    <option>15</option>
+                    <option>16</option>
+                    <option>17</option>
+                    <option>18</option>
+                    <option>19</option>
+                    <option>20</option>
+                    <option>21+</option>
+                </select>
+
+                <label>Місто *</label>
+                <input id="rCity" required placeholder="Твоє місто">
+
+                <label>Бажана посада *</label>
+                <input id="rPosition" required placeholder="Наприклад, помічник бариста">
+
+                <label>Тип роботи</label>
+                <select id="rEmployment">
+                    <option>Неповна зайнятість</option>
+                    <option>Тимчасова робота</option>
+                    <option>Сезонна робота</option>
+                    <option>Повна зайнятість</option>
+                </select>
+
+                <label>Зручний графік</label>
+                <select id="rSchedule">
+                    <option>Після навчання</option>
+                    <option>У вихідні</option>
+                    <option>На канікулах</option>
+                    <option>Гнучкий графік</option>
+                </select>
+
+                <label>Освіта *</label>
+                <select id="rEducation" required>
+                    <option value="">Обери освіту</option>
+                    <option>Навчаюся у школі</option>
+                    <option>Навчаюся у коледжі</option>
+                    <option>Навчаюся в університеті</option>
+                    <option>Закінчив/-ла школу</option>
+                    <option>Інше</option>
+                </select>
+
+                <label>Досвід роботи</label>
+                <select id="rExperience">
+                    <option>Ще не маю досвіду роботи</option>
+                    <option>Маю досвід роботи</option>
+                    <option>Маю волонтерський досвід</option>
+                    <option>Маю досвід навчальних проєктів</option>
+                </select>
+
+                <label>Навички</label>
+                <textarea id="rSkills" placeholder="Комунікабельність, робота з ПК..."></textarea>
+
+                <label>Коротко про себе</label>
+                <textarea id="rAbout" placeholder="Розкажи про себе..."></textarea>
+
+                <label>Email *</label>
+                <input id="rEmail" type="email" required placeholder="you@example.com">
+
+                <label class="consent">
+                    <input type="checkbox" id="rConsent" required>
+                    <span>Мені є 16 років, або мої батьки/опікуни знають про це резюме
+                    і не проти. Я розумію, що резюме (без email) побачать усі відвідувачі сайту.</span>
+                </label>
+
+                <button class="primary" type="submit">Опублікувати резюме</button>
+                <button class="secondary" type="button" onclick="downloadResume()">
+                    Завантажити резюме
+                </button>
+            </form>
+
+            <div class="panel preview">
+                <h2>Попередній перегляд</h2>
+                <div class="avatar">✦</div>
+                <h2 id="pName">Твоє ім'я</h2>
+                <p id="pPosition" class="muted">Бажана посада</p>
+                <div class="tags">
+                    <span id="pAge">Вік</span>
+                    <span id="pCity">Місто</span>
+                    <span id="pEmployment">Неповна зайнятість</span>
+                </div>
+
+                <h3>Графік</h3>
+                <p id="pSchedule">Зручний графік</p>
+
+                <h3>Освіта</h3>
+                <p id="pEducation">Інформація про освіту</p>
+
+                <h3>Досвід</h3>
+                <p id="pExperience">Досвід роботи</p>
+
+                <h3>Навички</h3>
+                <p id="pSkills">Твої навички</p>
+
+                <h3>Про себе</h3>
+                <p id="pAbout">Кілька слів про тебе</p>
+
+                <h3>Контакт</h3>
+                <p id="pEmail">Твій email</p>
+            </div>
+        </div>
+
+        <div class="panel" style="margin-top:20px">
+            <h2>Мої запрошення</h2>
+            <div id="myInvitations"><p class="muted">Завантаження...</p></div>
+        </div>
+    </section>
+
+
+    <!-- ПІДТРИМКА -->
+    <section id="support" class="page hidden">
+        <div class="choice-intro">
+            <span class="label">Підтримка</span>
+            <h1>Потрібна <span>допомога?</span></h1>
+            <p class="muted">Не вдалося створити резюме, опублікувати вакансію або щось працює не так? Напиши або зателефонуй нам, і ми допоможемо.</p>
+        </div>
+
+        <div class="support-grid">
+            <a class="panel support-card" href="mailto:kiselova1904@gmail.com">
+                <div class="big-icon">✉️</div>
+                <h3>Написати на пошту</h3>
+                <p class="muted">Відповідаємо протягом одного-двох робочих днів.</p>
+                <span class="support-contact">kiselova1904@gmail.com</span>
+            </a>
+
+            <a class="panel support-card" href="tel:+380678700026">
+                <div class="big-icon">📞</div>
+                <h3>Зателефонувати</h3>
+                <p class="muted">Телефонуй у робочі години, якщо питання термінове.</p>
+                <span class="support-contact">+38 067 870 0026</span>
+            </a>
+        </div>
+
+        <div class="panel support-faq">
+            <h3>Часті запитання</h3>
+
+            <h4>Чи потрібно платити за користування платформою?</h4>
+            <p class="muted">Ні. Створювати резюме, шукати підробіток і публікувати вакансії можна безкоштовно.</p>
+
+            <h4>Як змінити роль: шукаю роботу чи надаю роботу?</h4>
+            <p class="muted">Натисни «⇄ Змінити роль» у верхньому меню й обери потрібний варіант.</p>
+
+            <h4>Що писати у листі до підтримки?</h4>
+            <p class="muted">Коротко опиши проблему і вкажи, на якій сторінці вона виникла. Так ми швидше її знайдемо.</p>
+        </div>
+    </section>
+
+</main>
+
+<footer>
+    Перший крок · Платформа для пошуку першої роботи ·
+    <a class="footer-link" href="#" onclick="showPage('support'); return false;">Підтримка</a>
+</footer>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
