@@ -1,91 +1,4 @@
 // ====================================
-// ЗАСТАВКА: відео «krok» на весь екран
-// ====================================
-// Кладемо файл krok.mp4 поруч із index.html.
-// Відео програється без звуку, після завершення заставка плавно зникає.
-// Якщо файлу немає або браузер не дає запустити відео, показується
-// запасна анімація зі словом «krok» і заставка зникає за кілька секунд.
-
-function initSplash() {
-    const splash = document.getElementById("splash");
-    if (!splash) return;
-
-    const video = document.getElementById("splashVideo");
-    const fallback = document.getElementById("splashFallback");
-    const skipBtn = document.getElementById("splashSkip");
-
-    const FALLBACK_TIME = 3500;   // скільки показуємо запасний варіант, мс
-    const START_TIMEOUT = 4000;   // скільки чекаємо старту відео, мс
-    const MAX_TIME = 30000;       // страховка: заставка не висить довше, мс
-
-    let closed = false;
-    let fallbackShown = false;
-    let videoStarted = false;
-
-    document.body.classList.add("splash-active");
-
-    function closeSplash() {
-        if (closed) return;
-        closed = true;
-
-        document.body.classList.remove("splash-active");
-        splash.classList.add("splash-hide");
-        if (video) video.pause();
-
-        setTimeout(() => splash.remove(), 800);
-    }
-
-    function showFallback() {
-        if (closed || fallbackShown) return;
-        fallbackShown = true;
-
-        if (video) video.classList.add("hidden");
-        if (fallback) fallback.classList.remove("hidden");
-
-        setTimeout(closeSplash, FALLBACK_TIME);
-    }
-
-    // Закриття: кнопка «Пропустити» і клавіша Escape
-    if (skipBtn) skipBtn.addEventListener("click", closeSplash);
-    document.addEventListener("keydown", e => {
-        if (e.key === "Escape") closeSplash();
-    });
-
-    if (video) {
-        video.muted = true;
-
-        video.addEventListener("ended", closeSplash);
-        video.addEventListener("error", showFallback);
-        video.addEventListener("playing", () => { videoStarted = true; });
-
-        // Якщо файл не знайдено, подія error приходить від <source>
-        const source = video.querySelector("source");
-        if (source) source.addEventListener("error", showFallback);
-
-        // Деякі браузери блокують автозапуск: тоді показуємо запасний варіант
-        const attempt = video.play();
-        if (attempt) attempt.catch(showFallback);
-
-        setTimeout(() => {
-            if (!videoStarted) showFallback();
-        }, START_TIMEOUT);
-    } else {
-        showFallback();
-    }
-
-    setTimeout(closeSplash, MAX_TIME);
-}
-
-try {
-    initSplash();
-} catch (error) {
-    console.error(error);
-    const stuck = document.getElementById("splash");
-    if (stuck) stuck.remove();
-    document.body.classList.remove("splash-active");
-}
-
-// ====================================
 // 0. НАЛАШТУВАННЯ FIREBASE
 // ====================================
 // Встав сюди свої дані з Firebase:
@@ -223,19 +136,30 @@ function startDatabase() {
 
 function listenPrivateData() {
     // Заявки на мої вакансії (бачу лише я як роботодавець)
+    let applicationsReady = false;
     db.collection("applications")
         .where("employerUid", "==", currentUid)
         .onSnapshot(snapshot => {
             myApplications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             renderMyJobs();
+            renderInbox();
+            if (applicationsReady) {
+                notifyNew(snapshot, data => "Нова заявка від " + (data.name || "кандидата"));
+            }
+            applicationsReady = true;
         }, handleDbError);
 
     // Запрошення, адресовані мені як кандидату
+    let invitationsReady = false;
     db.collection("invitations")
         .where("candidateUid", "==", currentUid)
         .onSnapshot(snapshot => {
             myInvitations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            renderMyInvitations();
+            renderInbox();
+            if (invitationsReady) {
+                notifyNew(snapshot, data => "Нове запрошення від «" + (data.company || "роботодавця") + "»");
+            }
+            invitationsReady = true;
         }, handleDbError);
 }
 
@@ -244,7 +168,7 @@ function refreshAll() {
     renderJobs();
     renderResumes();
     renderMyJobs();
-    renderMyInvitations();
+    renderInbox();
 }
 
 // ====================================
@@ -265,7 +189,9 @@ function showPage(pageId, fromBack = false) {
         pageHistory.push(currentPage);
         if (pageHistory.length > 30) pageHistory.shift();
     }
+    const leavingInbox = currentPage === "inbox" && pageId !== "inbox";
     currentPage = pageId;
+    if (leavingInbox) markInboxSeen();
     applyRoleButtons();
 
     document.querySelectorAll(".page").forEach(page => {
@@ -283,6 +209,10 @@ function showPage(pageId, fromBack = false) {
         btn.classList.toggle("active", btn.dataset.page === pageId);
     });
 
+    // На телефоні меню прокручується вбік: показуємо активну кнопку
+    const activeNavBtn = document.querySelector("#mainNav button.active");
+    if (activeNavBtn) activeNavBtn.scrollIntoView({ inline: "center", block: "nearest" });
+
     // На екрані вибору кнопка «назад» не потрібна
     document.getElementById("backBtn")
         .classList.toggle("hidden", pageId === "choice");
@@ -291,6 +221,8 @@ function showPage(pageId, fromBack = false) {
     if (pageId === "resumes") renderResumes();
     if (pageId === "home") renderHome();
     if (pageId === "myJobs") renderMyJobs();
+    if (pageId === "inbox") renderInbox();
+    updateInboxBadge();
 
     window.scrollTo({
         top: 0,
@@ -481,6 +413,9 @@ async function applyForJob(jobId) {
         return;
     }
 
+    const message = prompt("Напиши коротке повідомлення роботодавцю (можна залишити порожнім):");
+    if (message === null) return;
+
     try {
         await db.collection("applications").add({
             jobId: job.id,
@@ -489,6 +424,7 @@ async function applyForJob(jobId) {
             applicantUid: currentUid,
             name: name.trim(),
             email: email.trim(),
+            message: message.trim(),
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
@@ -528,6 +464,7 @@ function renderMyJobs() {
                 <div class="note-item">
                     <p><strong>${escapeHTML(item.name)}</strong></p>
                     <p>Email: ${escapeHTML(item.email)}</p>
+                    ${item.message ? `<p>${escapeHTML(item.message)}</p>` : ""}
                     <p class="muted">${escapeHTML(formatDate(item.createdAt))}</p>
                 </div>
             `).join("")
@@ -732,33 +669,167 @@ async function inviteCandidate(resumeId) {
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        alert("Запрошення надіслано. Кандидат побачить його у розділі «Створити резюме».");
+        alert("Запрошення надіслано. Кандидат побачить його у розділі «Повідомлення».");
     } catch (error) {
         handleDbError(error);
         alert("Не вдалося надіслати запрошення.");
     }
 }
 
-function renderMyInvitations() {
-    const box = document.getElementById("myInvitations");
+// ====================================
+// 11б. ПОВІДОМЛЕННЯ (вхідні)
+// ====================================
+// Сюди приходять: запрошення від роботодавців (кандидату)
+// і заявки на вакансії (роботодавцю). Нові повідомлення
+// підсвічуються, на вкладці є лічильник, а коли сайт відкритий,
+// з'являється спливаюче сповіщення.
+
+const SEEN_KEY = "pk_inbox_seen";
+let inboxSeen = 0;
+try {
+    inboxSeen = Number(localStorage.getItem(SEEN_KEY)) || 0;
+} catch (error) {
+    inboxSeen = 0;
+}
+
+function messageTime(item) {
+    return item.createdAt?.seconds || 0;
+}
+
+function getInboxMessages() {
+    const invitations = myInvitations.map(item => ({ ...item, kind: "invitation" }));
+    const applications = myApplications.map(item => ({ ...item, kind: "application" }));
+
+    return [...invitations, ...applications]
+        .sort((a, b) => messageTime(b) - messageTime(a));
+}
+
+function updateInboxBadge() {
+    const badge = document.getElementById("inboxBadge");
+    if (!badge) return;
+
+    const count = currentPage === "inbox"
+        ? 0
+        : getInboxMessages().filter(item => messageTime(item) > inboxSeen).length;
+
+    badge.textContent = count > 9 ? "9+" : String(count);
+    badge.classList.toggle("hidden", count === 0);
+
+    // На телефоні вкладку з новими повідомленнями ставимо на перше місце в меню
+    const nav = document.getElementById("mainNav");
+    if (nav) nav.classList.toggle("has-unread", count > 0);
+}
+
+// Усе, що було у списку, вважаємо прочитаним
+function markInboxSeen() {
+    const newest = Math.max(0, ...getInboxMessages().map(messageTime));
+
+    if (newest > inboxSeen) {
+        inboxSeen = newest;
+        try {
+            localStorage.setItem(SEEN_KEY, String(inboxSeen));
+        } catch (error) {
+            // сховище недоступне: нічого страшного
+        }
+    }
+    updateInboxBadge();
+}
+
+// Кнопка «Відповісти», якщо в контакті є email
+function replyLink(address, subject) {
+    const email = String(address || "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "";
+
+    return `<a class="reply-btn" href="mailto:${escapeHTML(email)}?subject=${escapeHTML(encodeURIComponent(subject))}">Відповісти на пошту</a>`;
+}
+
+function renderInbox() {
+    const box = document.getElementById("inboxList");
     if (!box) return;
 
-    if (!myInvitations.length) {
-        box.innerHTML = '<p class="muted">Поки немає запрошень. Опублікуй резюме, і роботодавці зможуть тобі написати.</p>';
+    const messages = getInboxMessages();
+
+    if (!messages.length) {
+        box.innerHTML = `
+            <div class="panel">
+                <h3>Поки немає повідомлень</h3>
+                <p class="muted">Коли роботодавець запросить тебе на співбесіду або кандидат відгукнеться на твою вакансію, повідомлення з'явиться тут.</p>
+            </div>
+        `;
+        updateInboxBadge();
         return;
     }
 
-    const sorted = [...myInvitations].sort((a, b) =>
-        (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    box.innerHTML = messages.map(item => {
+        const isNew = messageTime(item) > inboxSeen;
+        const newBadge = isNew ? '<span class="new-badge">Нове</span>' : "";
+        const cardClass = "panel message-card" + (isNew ? " is-new" : "");
 
-    box.innerHTML = sorted.map(item => `
-        <div class="note-item">
-            <p><strong>${escapeHTML(item.company)}</strong></p>
-            <p>${escapeHTML(item.message)}</p>
-            <p>Контакт: ${escapeHTML(item.contact)}</p>
-            <p class="muted">${escapeHTML(formatDate(item.createdAt))}</p>
-        </div>
-    `).join("");
+        if (item.kind === "invitation") {
+            return `
+                <article class="${cardClass}">
+                    <div class="message-head">
+                        <span class="message-type">📩 Запрошення на співбесіду</span>${newBadge}
+                    </div>
+                    <h3>${escapeHTML(item.company)}</h3>
+                    <p class="message-text">${escapeHTML(item.message)}</p>
+                    <p><strong>Контакт:</strong> ${escapeHTML(item.contact)}</p>
+                    <p class="muted">${escapeHTML(formatDate(item.createdAt))}</p>
+                    ${replyLink(item.contact, "Відповідь на запрошення")}
+                </article>
+            `;
+        }
+
+        return `
+            <article class="${cardClass}">
+                <div class="message-head">
+                    <span class="message-type">💼 Заявка на вакансію</span>${newBadge}
+                </div>
+                <h3>${escapeHTML(item.name)}</h3>
+                <p class="muted">Вакансія: ${escapeHTML(item.jobTitle)}</p>
+                ${item.message ? `<p class="message-text">${escapeHTML(item.message)}</p>` : ""}
+                <p><strong>Email:</strong> ${escapeHTML(item.email)}</p>
+                <p class="muted">${escapeHTML(formatDate(item.createdAt))}</p>
+                ${replyLink(item.email, "Відповідь на заявку: " + (item.jobTitle || ""))}
+            </article>
+        `;
+    }).join("");
+
+    updateInboxBadge();
+}
+
+// Спливаюче сповіщення про нове повідомлення
+let toastTimer = null;
+
+function showToast(text) {
+    const toast = document.getElementById("toast");
+    if (!toast) return;
+
+    toast.textContent = "📩 " + text;
+    toast.classList.remove("hidden");
+
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.add("hidden"), 7000);
+}
+
+function notifyNew(snapshot, makeText) {
+    if (snapshot.metadata.hasPendingWrites) return;
+    if (currentPage === "inbox") return;
+
+    const added = snapshot.docChanges().filter(change => change.type === "added");
+    if (!added.length) return;
+
+    showToast(added.length > 1
+        ? "Нових повідомлень: " + added.length
+        : makeText(added[0].doc.data()));
+}
+
+const toastElement = document.getElementById("toast");
+if (toastElement) {
+    toastElement.addEventListener("click", () => {
+        toastElement.classList.add("hidden");
+        showPage("inbox");
+    });
 }
 
 // ====================================

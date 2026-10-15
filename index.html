@@ -2,26 +2,15 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#477b65">
     <title>Перший крок — робота для молоді</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<!-- ЗАСТАВКА ПРИ ЗАПУСКУ САЙТУ -->
-<div id="splash" class="splash" aria-hidden="true">
-    <video id="splashVideo" class="splash-video" muted playsinline autoplay preload="auto">
-        <source src="krok.mp4" type="video/mp4">
-    </video>
-
-    <!-- Запасной вариант, если видео krok.mp4 не найдено -->
-    <div id="splashFallback" class="splash-fallback hidden">
-        <img src="stairs-walker.svg" width="320" height="260" alt="" onerror="this.classList.add('hidden')">
-        <div class="splash-title">krok</div>
-    </div>
-
-    <button id="splashSkip" class="splash-skip" type="button">Пропустити</button>
-</div>
 
 <header class="topbar">
     <div class="brand">
@@ -62,6 +51,7 @@
         <button data-role="employer" data-page="resumes" onclick="showPage('resumes')">Переглянути резюме</button>
         <button data-role="employer" data-page="myJobs" onclick="showPage('myJobs')">Подані вакансії</button>
 
+        <button data-page="inbox" onclick="showPage('inbox')">Повідомлення <span id="inboxBadge" class="badge hidden">0</span></button>
         <button data-page="support" onclick="showPage('support')">Підтримка</button>
         <button onclick="showPage('choice')">⇄ Змінити роль</button>
     </nav>
@@ -145,14 +135,6 @@
                 <button class="secondary" onclick="showPage('builder')">
                     Створити резюме
                 </button>
-            </div>
-
-            <div class="hero-card">
-                <div class="big-icon">🌱</div>
-                <h2>Почни з малого</h2>
-                <p>Твої навички, бажання вчитися та відповідальність — це вже хороший старт.</p>
-                <span class="tag">Перший досвід</span>
-                <span class="tag">Гнучкий графік</span>
             </div>
         </div>
 
@@ -351,13 +333,15 @@
                 <p id="pEmail">Твій email</p>
             </div>
         </div>
-
-        <div class="panel" style="margin-top:20px">
-            <h2>Мої запрошення</h2>
-            <div id="myInvitations"><p class="muted">Завантаження...</p></div>
-        </div>
     </section>
 
+
+    <!-- ПОВІДОМЛЕННЯ -->
+    <section id="inbox" class="page hidden">
+        <h1>Повідомлення</h1>
+        <p class="muted">Тут з'являються запрошення від роботодавців і заявки кандидатів на твої вакансії.</p>
+        <div id="inboxList" class="inbox"></div>
+    </section>
 
     <!-- ПІДТРИМКА -->
     <section id="support" class="page hidden">
@@ -398,6 +382,8 @@
     </section>
 
 </main>
+
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
 <footer>
     Перший крок · Платформа для пошуку першої роботи ·
