@@ -19,6 +19,19 @@ let db = null;
 let auth = null;
 let currentUid = null;
 
+// ====================================
+// АДМІНИ (модератори)
+// ====================================
+// Впиши сюди email-и людей, які можуть видаляти будь-які вакансії та резюме.
+// Ці самі email-и треба вписати у правила Firestore (інструкція в чаті).
+const ADMIN_EMAILS = [
+    "kiselova1904@gmail.com",
+    "dmytro23dd@gmail.com"
+];
+
+let isAdmin = false;
+let unsubscribePrivate = [];
+
 function showBanner(text) {
     const banner = document.getElementById("dbBanner");
     if (!banner) {
@@ -109,6 +122,9 @@ function startDatabase() {
     auth.onAuthStateChanged(user => {
         if (user) {
             currentUid = user.uid;
+            isAdmin = !user.isAnonymous &&
+                ADMIN_EMAILS.includes(String(user.email || "").toLowerCase());
+            updateAdminLink();
             listenPrivateData();
             refreshAll();
         }
@@ -135,9 +151,12 @@ function startDatabase() {
 }
 
 function listenPrivateData() {
+    unsubscribePrivate.forEach(stop => stop());
+    unsubscribePrivate = [];
+
     // Заявки на мої вакансії (бачу лише я як роботодавець)
     let applicationsReady = false;
-    db.collection("applications")
+    unsubscribePrivate.push(db.collection("applications")
         .where("employerUid", "==", currentUid)
         .onSnapshot(snapshot => {
             myApplications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -147,11 +166,11 @@ function listenPrivateData() {
                 notifyNew(snapshot, data => "Нова заявка від " + (data.name || "кандидата"));
             }
             applicationsReady = true;
-        }, handleDbError);
+        }, handleDbError));
 
     // Запрошення, адресовані мені як кандидату
     let invitationsReady = false;
-    db.collection("invitations")
+    unsubscribePrivate.push(db.collection("invitations")
         .where("candidateUid", "==", currentUid)
         .onSnapshot(snapshot => {
             myInvitations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -160,7 +179,59 @@ function listenPrivateData() {
                 notifyNew(snapshot, data => "Нове запрошення від «" + (data.company || "роботодавця") + "»");
             }
             invitationsReady = true;
-        }, handleDbError);
+        }, handleDbError));
+}
+
+function updateAdminLink() {
+    const link = document.getElementById("adminLink");
+    if (link) link.textContent = isAdmin ? "Вийти з режиму адміна" : "Вхід для адміна";
+}
+
+async function adminLogin() {
+    if (!auth) {
+        alert("База даних ще не підключена.");
+        return;
+    }
+
+    if (isAdmin) {
+        await auth.signOut();          // після виходу сайт сам створить анонімного відвідувача
+        isAdmin = false;
+        await auth.signInAnonymously().catch(handleDbError);
+        alert("Ти вийшов з режиму адміна.");
+        return;
+    }
+
+    const email = prompt("Email адміна:");
+    if (!email) return;
+    const password = prompt("Пароль:");
+    if (!password) return;
+
+    try {
+        const result = await auth.signInWithEmailAndPassword(email.trim(), password);
+        const loggedEmail = String(result.user.email || "").toLowerCase();
+
+        if (!ADMIN_EMAILS.map(item => item.toLowerCase()).includes(loggedEmail)) {
+            alert("Цей акаунт не є адміном. Додай його email у ADMIN_EMAILS у script.js.");
+            return;
+        }
+
+        currentUid = result.user.uid;
+        isAdmin = true;
+        updateAdminLink();
+        listenPrivateData();
+        refreshAll();
+        alert("Ти увійшов як адмін. Кнопки видалення з'явились на вакансіях («Шукаю роботу») і на резюме («Переглянути резюме»).");
+    } catch (error) {
+        console.error(error);
+        const code = error.code || "";
+        if (code === "auth/operation-not-allowed") {
+            alert("У Firebase не ввімкнено вхід Email/Password (Authentication → Sign-in method).");
+        } else if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found" || code === "auth/invalid-login-credentials") {
+            alert("Неправильний email або пароль, або такого акаунта ще немає в Firebase (Authentication → Users).");
+        } else {
+            alert("Не вдалося увійти: " + (code || error.message));
+        }
+    }
 }
 
 function refreshAll() {
@@ -273,7 +344,7 @@ function getAllJobs() {
 }
 
 function jobCard(job) {
-    const isMine = job.ownerUid && job.ownerUid === currentUid;
+    const isMine = (job.ownerUid && job.ownerUid === currentUid) || (isAdmin && !job.demo);
 
     return `
         <article class="job-card">
@@ -576,14 +647,18 @@ document.getElementById("resumeForm").addEventListener("submit", async function 
     }
 });
 
-async function deleteMyResume() {
+async function deleteMyResume(resumeId) {
     if (!requireDatabase()) return;
-    if (!confirm("Видалити твоє резюме? Воно зникне для всіх.")) return;
+    const targetId = resumeId || currentUid;
+    const question = targetId === currentUid
+        ? "Видалити твоє резюме? Воно зникне для всіх."
+        : "Видалити це резюме для всіх?";
+    if (!confirm(question)) return;
 
     try {
         const batch = db.batch();
-        batch.delete(db.collection("resumes").doc(currentUid));
-        batch.delete(db.collection("contacts").doc(currentUid));
+        batch.delete(db.collection("resumes").doc(targetId));
+        batch.delete(db.collection("contacts").doc(targetId));
         await batch.commit();
     } catch (error) {
         handleDbError(error);
@@ -613,6 +688,7 @@ function renderResumes() {
 
     container.innerHTML = resumes.map(resume => {
         const isMine = resume.id === currentUid;
+        const canDelete = isMine || isAdmin;
 
         return `
         <article class="resume-card">
@@ -635,6 +711,10 @@ function renderResumes() {
                 <button class="primary" onclick="inviteCandidate('${escapeHTML(resume.id)}')">
                     Запросити на співбесіду
                 </button>`}
+            ${isAdmin && !isMine ? `
+                <button class="danger" onclick="deleteMyResume('${escapeHTML(resume.id)}')">
+                    Видалити резюме (адмін)
+                </button>` : ""}
         </article>
     `;
     }).join("");
